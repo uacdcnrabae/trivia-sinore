@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Escape Room SINORE - Centro de Control Espacial</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', 'Orbitron', monospace; }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #0ff;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 100;
+            pointer-events: none;
+            backdrop-filter: blur(5px);
+            border-left: 4px solid #0ff;
+        }
+        #instrucciones {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #ccc;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 100;
+            pointer-events: none;
+        }
+        #mensaje {
+            position: absolute;
+            bottom: 30%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            color: #ffaa44;
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-size: 20px;
+            font-weight: bold;
+            z-index: 200;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid #ffaa44;
+            pointer-events: none;
+            transition: opacity 0.5s;
+            white-space: nowrap;
+        }
+        .panel-ui {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10,20,30,0.95);
+            border-radius: 16px;
+            padding: 20px;
+            color: white;
+            z-index: 300;
+            font-family: 'Segoe UI', sans-serif;
+            backdrop-filter: blur(8px);
+            border: 2px solid #0ff;
+            box-shadow: 0 0 30px rgba(0,255,255,0.3);
+            min-width: 400px;
+            text-align: center;
+            pointer-events: auto;
+        }
+        .panel-ui button {
+            background: #0ff;
+            color: #000;
+            border: none;
+            padding: 8px 20px;
+            margin: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 30px;
+        }
+        .panel-ui button:hover { background: #ffaa44; }
+        .opcion {
+            display: block;
+            background: #1e2a3a;
+            margin: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            text-align: left;
+        }
+        .opcion:hover { background: #2c4c6c; transform: scale(1.02); }
+        .oculto { display: none; }
+        .pregunta-texto { font-size: 18px; margin-bottom: 20px; color: #0ff; }
+        .jerarquia-item {
+            background: #2a3f5e;
+            margin: 8px;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-block;
+            width: 200px;
+        }
+        .zona-destino {
+            background: #1a2a3a;
+            border: 2px dashed #0ff;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 10px;
+            min-height: 80px;
+        }
+        .flex-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+        .paso-item {
+            background: #2a3f5e;
+            margin: 5px;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 90%;
+        }
+        #puntuacion {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 15px;
+            border-radius: 20px;
+            color: #0ff;
+            font-weight: bold;
+            z-index: 100;
+        }
+        @media (max-width: 600px) {
+            .panel-ui { width: 90%; min-width: auto; }
+            .opcion { font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="info">🧠 ESCAPE ROOM SINORE | Centro de Control Espacial ABAE</div>
+    <div id="instrucciones">🎮 WASD o flechas para moverte | 🖱️ Ratón para mirar | 🔍 Clic en objetos brillantes</div>
+    <div id="puntuacion">🔓 Acertijos resueltos: <span id="progreso">0</span> / 3</div>
+    <div id="mensaje" style="opacity:0;">Bienvenido, escapa demostrando tu conocimiento del SINORE</div>
+
+    <div id="puzzle1-panel" class="panel-ui oculto">
+        <h2>🔐 PUERTA DEL CONOCIMIENTO</h2>
+        <div id="p1-pregunta" class="pregunta-texto"></div>
+        <div id="p1-opciones"></div>
+        <div id="p1-feedback" style="margin-top:10px; font-size:14px;"></div>
+        <button id="p1-cerrar">Cerrar</button>
+    </div>
+
+    <div id="puzzle2-panel" class="panel-ui oculto">
+        <h2>📊 CUADRO DE MANDOS - Jerarquía SINORE</h2>
+        <p>Arrastra (clic) cada disciplina a su rama correspondiente:</p>
+        <div class="flex-row">
+            <div style="flex:1;"><h3>📁 Elementos:</h3><div id="elementos-lista"></div></div>
+            <div style="flex:1;"><h3>🎯 Ramas:</h3><div id="ramas-lista"></div></div>
+        </div>
+        <div id="p2-feedback"></div>
+        <button id="p2-verificar">Verificar</button>
+        <button id="p2-cerrar">Cerrar</button>
+    </div>
+
+    <div id="puzzle3-panel" class="panel-ui oculto">
+        <h2>🔄 PROCESO DE ADAPTACIÓN (7 pasos)</h2>
+        <p>Ordena los pasos correctamente (clic para intercambiar):</p>
+        <div id="pasos-lista" style="display:flex; flex-direction:column; align-items:center;"></div>
+        <button id="p3-verificar">Verificar orden</button>
+        <button id="p3-cerrar">Cerrar</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // --- Escena 3D ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050b1a);
+        scene.fog = new THREE.FogExp2(0x050b1a, 0.008);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.6, 4);
+        camera.lookAt(0, 1.6, -5);
+        
+        // Control de ratón
+        let yaw = Math.PI;
+        let pitch = 0;
+        let mouseX = yaw, mouseY = pitch;
+        const sensitivity = 0.002;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'auto';
+        document.body.appendChild(labelRenderer.domElement);
+
+        // --- Movimiento WASD ---
+        let moveForward = false, moveBack = false, moveLeft = false, moveRight = false;
+        document.addEventListener('keydown', (e) => {
+            switch(e.code) {
+                case 'KeyW': moveForward = true; break;
+                case 'KeyS': moveBack = true; break;
+                case 'KeyA': moveLeft = true; break;
+                case 'KeyD': moveRight = true; break;
+                case 'ArrowUp': moveForward = true; break;
+                case 'ArrowDown': moveBack = true; break;
+                case 'ArrowLeft': moveLeft = true; break;
+                case 'ArrowRight': moveRight = true; break;
+            }
+        });
+        document.addEventListener('keyup', (e) => {
+            switch(e.code) {
+                case 'KeyW': moveForward = false; break;
+                case 'KeyS': moveBack = false; break;
+                case 'KeyA': moveLeft = false; break;
+                case 'KeyD': moveRight = false; break;
+                case 'ArrowUp': moveForward = false; break;
+                case 'ArrowDown': moveBack = false; break;
+                case 'ArrowLeft': moveLeft = false; break;
+                case 'ArrowRight': moveRight = false; break;
+            }
+        });
+
+        // Ratón: orientación
+        document.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement === renderer.domElement) {
+                mouseX += e.movementX * sensitivity;
+                mouseY += e.movementY * sensitivity;
+                mouseY = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, mouseY));
+                yaw = mouseX;
+                pitch = mouseY;
+                camera.rotation.order = 'YXZ';
+                camera.rotation.set(pitch, yaw, 0);
+            }
+        });
+        renderer.domElement.addEventListener('click', () => {
+            renderer.domElement.requestPointerLock();
+        });
+
+        const speed = 5.0;
+        function updateMovement(deltaTime) {
+            const actualSpeed = speed * deltaTime;
+            // Obtener dirección hacia adelante (plano XZ)
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            forward.y = 0;
+            forward.normalize();
+            
+            // Obtener el vector derecha a partir del quaternion de la cámara (eje X local)
+            const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+            right.y = 0;
+            right.normalize();
+            
+            let move = new THREE.Vector3(0,0,0);
+            if (moveForward) move.add(forward);
+            if (moveBack) move.sub(forward);
+            if (moveRight) move.add(right);
+            if (moveLeft) move.sub(right);
+            move.multiplyScalar(actualSpeed);
+            camera.position.add(move);
+            
+            // Limitar movimiento dentro de la habitación
+            camera.position.x = Math.min(8, Math.max(-8, camera.position.x));
+            camera.position.z = Math.min(6, Math.max(-6, camera.position.z));
+            camera.position.y = 1.6;
+        }
+
+        // --- Crear habitación ---
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.4, metalness: 0.7 });
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 18), floorMat);
+        floor.rotation.x = -Math.PI/2;
+        floor.position.y = -0.05;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.3, metalness: 0.2 });
+        const backWall = new THREE.Mesh(new THREE.BoxGeometry(20, 5, 0.2), wallMat);
+        backWall.position.set(0, 2.5, -9);
+        backWall.receiveShadow = true;
+        scene.add(backWall);
+        const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, 5, 18), wallMat);
+        leftWall.position.set(-10, 2.5, 0);
+        scene.add(leftWall);
+        const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, 5, 18), wallMat);
+        rightWall.position.set(10, 2.5, 0);
+        scene.add(rightWall);
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(20, 0.2, 18), new THREE.MeshStandardMaterial({ color: 0x88aaff, emissive: 0x112233 }));
+        roof.position.set(0, 5, 0);
+        scene.add(roof);
+
+        // Luces
+        const ambientLight = new THREE.AmbientLight(0x404060);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(5, 10, 7);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+        const fillLight = new THREE.PointLight(0x2266ff, 0.3);
+        fillLight.position.set(0, 3, 0);
+        scene.add(fillLight);
+
+        // Objetos decorativos
+        const panelMat = new THREE.MeshStandardMaterial({ color: 0x445566, emissive: 0x112233 });
+        const mesa = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 1.5), panelMat);
+        mesa.position.set(-3, 0, -2);
+        mesa.castShadow = true;
+        scene.add(mesa);
+        const consola = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1), new THREE.MeshStandardMaterial({ color: 0x88aaff }));
+        consola.position.set(4, 0.2, -1);
+        scene.add(consola);
+        const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.8, 0.1), new THREE.MeshStandardMaterial({ color: 0x111122, emissive: 0x224466 }));
+        screenFrame.position.set(0, 2.5, -8.8);
+        scene.add(screenFrame);
+        const diagramTable = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.4, 2), panelMat);
+        diagramTable.position.set(-5, 0.2, 2);
+        scene.add(diagramTable);
+        const door = new THREE.Mesh(new THREE.BoxGeometry(1.8, 3, 0.3), new THREE.MeshStandardMaterial({ color: 0xaa8866 }));
+        door.position.set(6, 1.5, 8.5);
+        scene.add(door);
+        const doorLight = new THREE.PointLight(0xff6600, 0.5);
+        doorLight.position.set(6, 2, 8.8);
+        scene.add(doorLight);
+
+        // --- Etiquetas interactivas ---
+        function makeInteractive(text, position, onClick, color = '#0ff') {
+            const div = document.createElement('div');
+            div.textContent = text;
+            div.style.backgroundColor = 'rgba(0,0,0,0.7)';
+            div.style.color = color;
+            div.style.padding = '8px 12px';
+            div.style.borderRadius = '12px';
+            div.style.border = `1px solid ${color}`;
+            div.style.fontFamily = 'monospace';
+            div.style.fontSize = '14px';
+            div.style.cursor = 'pointer';
+            div.style.backdropFilter = 'blur(5px)';
+            div.addEventListener('click', onClick);
+            const label = new CSS2DObject(div);
+            label.position.copy(position);
+            scene.add(label);
+            return label;
+        }
+
+        // --- Puzzles (mismo contenido que antes, sin cambios) ---
+        let puzzlesResueltos = [false, false, false];
+        let progreso = 0;
+        function actualizarProgreso() {
+            document.getElementById('progreso').innerText = progreso;
+            if (progreso === 3) {
+                mostrarMensaje("¡PUERTA DESBLOQUEADA! Has escapado. ¡Felicidades!", true);
+                door.material.color.setHex(0x44ff44);
+                doorLight.color.setHex(0x44ff44);
+            }
+        }
+        function mostrarMensaje(msg, esVictoria = false) {
+            const el = document.getElementById('mensaje');
+            el.textContent = msg;
+            el.style.opacity = '1';
+            if (esVictoria) el.style.backgroundColor = 'gold';
+            else el.style.backgroundColor = 'rgba(0,0,0,0.85)';
+            setTimeout(() => { el.style.opacity = '0'; }, 3000);
+        }
+
+        // Puzzle 1
+        const preguntas = [
+            { text: "¿Cuáles son las cuatro ramas principales del SINORE?", 
+              options: ["Gestión, Ingeniería, Aseguramiento de calidad, Sostenibilidad", "Gestión, Software, Mecánica, Óptica", "Calidad, Riesgos, Costos, Logística", "Proyectos, Comunicación, Control, Electricidad"],
+              correct: 0 },
+            { text: "¿Qué significan las siglas 'NT' y 'ME' en los documentos SINORE?", 
+              options: ["Norma Técnica y Memorando Técnico", "Núcleo Técnico y Manual Espacial", "Normalización Terrestre y Misión Espacial", "Notificación Técnica y Mecánica Espacial"],
+              correct: 0 },
+            { text: "¿Qué disciplinas incluye la rama de Aseguramiento de la calidad? (según sección 6.3.4)", 
+              options: ["Confiabilidad, Seguridad, Componentes EEE, Materiales, Software", "Solo confiabilidad y seguridad", "Gestión de costos y cronogramas", "Ingeniería de sistemas y operaciones"],
+              correct: 0 }
+        ];
+        let preguntaActual = 0, p1Aciertos = 0;
+        function abrirPuzzle1() {
+            if (puzzlesResueltos[0]) { mostrarMensaje("Ya resolviste este acertijo."); return; }
+            preguntaActual = 0; p1Aciertos = 0;
+            mostrarPregunta();
+            document.getElementById('puzzle1-panel').classList.remove('oculto');
+        }
+        function mostrarPregunta() {
+            const q = preguntas[preguntaActual];
+            document.getElementById('p1-pregunta').innerText = q.text;
+            const cont = document.getElementById('p1-opciones');
+            cont.innerHTML = '';
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('div');
+                btn.className = 'opcion';
+                btn.innerText = `${String.fromCharCode(65+idx)}. ${opt}`;
+                btn.onclick = () => evaluarRespuesta(idx);
+                cont.appendChild(btn);
+            });
+            document.getElementById('p1-feedback').innerHTML = '';
+        }
+        function evaluarRespuesta(idx) {
+            if (puzzlesResueltos[0]) return;
+            const q = preguntas[preguntaActual];
+            const esCorrecta = (idx === q.correct);
+            const feedback = document.getElementById('p1-feedback');
+            if (esCorrecta) {
+                feedback.innerHTML = '<span style="color:#0f0;">✅ Correcto!</span>';
+                p1Aciertos++;
+                if (preguntaActual + 1 < preguntas.length) {
+                    preguntaActual++;
+                    mostrarPregunta();
+                } else {
+                    if (p1Aciertos === 3) {
+                        puzzlesResueltos[0] = true;
+                        progreso++;
+                        actualizarProgreso();
+                        mostrarMensaje("Acertijo 1 resuelto: Tarjeta de acceso obtenida.");
+                        document.getElementById('puzzle1-panel').classList.add('oculto');
+                    }
+                }
+            } else {
+                feedback.innerHTML = '<span style="color:#f66;">❌ Incorrecto. Revisa el documento SINORE.</span>';
+            }
+        }
+
+        // Puzzle 2 (Jerarquía)
+        const ramas = ["Gestión de proyectos", "Ingeniería y Mantenimiento", "Aseguramiento de la calidad", "Sostenibilidad"];
+        const disciplinas = [
+            { nombre: "Planificación e implementación", rama: "Gestión de proyectos" },
+            { nombre: "Ingeniería de sistemas", rama: "Ingeniería y Mantenimiento" },
+            { nombre: "Confiabilidad", rama: "Aseguramiento de la calidad" },
+            { nombre: "Desechos espaciales", rama: "Sostenibilidad" },
+            { nombre: "Gestión de riesgos", rama: "Gestión de proyectos" },
+            { nombre: "Ingeniería mecánica", rama: "Ingeniería y Mantenimiento" },
+            { nombre: "Seguridad", rama: "Aseguramiento de la calidad" }
+        ];
+        let elementosSinAsignar = [...disciplinas];
+        let asignaciones = { "Gestión de proyectos": [], "Ingeniería y Mantenimiento": [], "Aseguramiento de la calidad": [], "Sostenibilidad": [] };
+        let elementoSeleccionado = null;
+
+        function actualizarUIpuzzle2() {
+            const elementosDiv = document.getElementById('elementos-lista');
+            elementosDiv.innerHTML = '';
+            elementosSinAsignar.forEach(d => {
+                const btn = document.createElement('div');
+                btn.className = 'jerarquia-item';
+                btn.innerText = d.nombre;
+                btn.onclick = () => { elementoSeleccionado = d; mostrarMensaje(`Seleccionado: ${d.nombre}. Haz clic en una rama.`); };
+                elementosDiv.appendChild(btn);
+            });
+            const ramasDiv = document.getElementById('ramas-lista');
+            ramasDiv.innerHTML = '';
+            ramas.forEach(rama => {
+                const zona = document.createElement('div');
+                zona.className = 'zona-destino';
+                zona.innerHTML = `<strong>${rama}</strong><br>`;
+                asignaciones[rama].forEach(item => {
+                    const chip = document.createElement('span');
+                    chip.style.background = '#1f6d6d';
+                    chip.style.padding = '2px 8px';
+                    chip.style.borderRadius = '20px';
+                    chip.style.margin = '4px';
+                    chip.innerText = item.nombre;
+                    chip.style.cursor = 'pointer';
+                    chip.onclick = (e) => {
+                        e.stopPropagation();
+                        const idx = asignaciones[rama].findIndex(i => i.nombre === item.nombre);
+                        if (idx !== -1) {
+                            asignaciones[rama].splice(idx,1);
+                            elementosSinAsignar.push(item);
+                            actualizarUIpuzzle2();
+                        }
+                    };
+                    zona.appendChild(chip);
+                });
+                zona.onclick = () => {
+                    if (elementoSeleccionado) {
+                        const idx = elementosSinAsignar.findIndex(d => d.nombre === elementoSeleccionado.nombre);
+                        if (idx !== -1) {
+                            elementosSinAsignar.splice(idx,1);
+                            asignaciones[rama].push(elementoSeleccionado);
+                            elementoSeleccionado = null;
+                            actualizarUIpuzzle2();
+                            mostrarMensaje(`Asignado a ${rama}`);
+                        }
+                    }
+                };
+                ramasDiv.appendChild(zona);
+            });
+        }
+        function verificarPuzzle2() {
+            let correcto = true;
+            for (let d of disciplinas) {
+                let asignado = false;
+                for (let r of ramas) {
+                    if (asignaciones[r].some(a => a.nombre === d.nombre && r === d.rama)) asignado = true;
+                }
+                if (!asignado) correcto = false;
+            }
+            if (correcto && elementosSinAsignar.length === 0 && !puzzlesResueltos[1]) {
+                puzzlesResueltos[1] = true;
+                progreso++;
+                actualizarProgreso();
+                mostrarMensaje("Cuadro de mandos completado: Código recibido.");
+                document.getElementById('puzzle2-panel').classList.add('oculto');
+            } else if (!correcto) {
+                mostrarMensaje("Faltan disciplinas en su rama correcta. Revisa el PDF.");
+            }
+        }
+
+        // Puzzle 3 (Ordenar pasos)
+        const pasosCorrectos = [
+            "1. Identificación de las características del proyecto",
+            "2. Análisis de características e identificación de riesgos",
+            "3. Selección de estándares SINORE aplicables",
+            "4. Selección de requisitos de las normas aplicables",
+            "5. Cumplimiento de requisitos",
+            "6. Armonización de requisitos",
+            "7. Documentación de la aplicabilidad"
+        ];
+        let pasosActuales = [...pasosCorrectos];
+        function shuffleArray(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
+        shuffleArray(pasosActuales);
+        function actualizarPuzzle3() {
+            const cont = document.getElementById('pasos-lista');
+            cont.innerHTML = '';
+            pasosActuales.forEach((paso, idx) => {
+                const div = document.createElement('div');
+                div.className = 'paso-item';
+                div.innerText = paso;
+                div.onclick = () => {
+                    if (idx > 0) {
+                        [pasosActuales[idx-1], pasosActuales[idx]] = [pasosActuales[idx], pasosActuales[idx-1]];
+                        actualizarPuzzle3();
+                    }
+                };
+                cont.appendChild(div);
+            });
+        }
+        function verificarPuzzle3() {
+            let igual = true;
+            for (let i=0; i<pasosCorrectos.length; i++) {
+                if (pasosActuales[i] !== pasosCorrectos[i]) igual = false;
+            }
+            if (igual && !puzzlesResueltos[2]) {
+                puzzlesResueltos[2] = true;
+                progreso++;
+                actualizarProgreso();
+                mostrarMensaje("Proceso de adaptación ordenado. Puerta desbloqueada.");
+                document.getElementById('puzzle3-panel').classList.add('oculto');
+            } else if (!igual) {
+                mostrarMensaje("Orden incorrecto. Revisa los 7 pasos del documento.");
+            }
+        }
+
+        // Objetos interactivos
+        makeInteractive("🔐 Pantalla de acceso (Preguntas)", new THREE.Vector3(0, 3, -8.5), abrirPuzzle1, "#0ff");
+        makeInteractive("📊 Mesa de jerarquías", new THREE.Vector3(-5, 1, 2.5), () => {
+            if (!puzzlesResueltos[1]) document.getElementById('puzzle2-panel').classList.remove('oculto');
+            else mostrarMensaje("Jerarquía ya completada.");
+        }, "#ffaa44");
+        makeInteractive("🔄 Procesos de adaptación", new THREE.Vector3(4, 1.2, -0.5), () => {
+            if (!puzzlesResueltos[2]) document.getElementById('puzzle3-panel').classList.remove('oculto');
+            else mostrarMensaje("Proceso ya dominado.");
+        }, "#88ff88");
+        makeInteractive("🚪 Puerta de escape (requiere 3 acertijos)", new THREE.Vector3(6, 1.8, 9), () => {
+            if (progreso === 3) mostrarMensaje("¡ESCAPASTE! Victoria total.", true);
+            else mostrarMensaje("Puerta bloqueada. Resuelve los 3 acertijos.", false);
+        }, "#ff8866");
+
+        // Botones
+        document.getElementById('p1-cerrar').onclick = () => document.getElementById('puzzle1-panel').classList.add('oculto');
+        document.getElementById('p2-cerrar').onclick = () => document.getElementById('puzzle2-panel').classList.add('oculto');
+        document.getElementById('p3-cerrar').onclick = () => document.getElementById('puzzle3-panel').classList.add('oculto');
+        document.getElementById('p2-verificar').onclick = verificarPuzzle2;
+        document.getElementById('p3-verificar').onclick = verificarPuzzle3;
+
+        actualizarUIpuzzle2();
+        actualizarPuzzle3();
+
+        let lastTime = performance.now();
+        function animate() {
+            const now = performance.now();
+            let delta = Math.min(0.033, (now - lastTime) / 1000);
+            lastTime = now;
+            updateMovement(delta);
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        animate();
+        setTimeout(() => mostrarMensaje("Explora la sala. Interactúa con los paneles brillantes para resolver acertijos.", false), 1000);
+    </script>
+</body>
+</html>
